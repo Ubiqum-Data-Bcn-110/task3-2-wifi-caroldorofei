@@ -347,7 +347,7 @@ goodsignal <- data.frame()
 
 
 
-#Modelling
+#MODELLING - BUILDING
 ##Create vector with WAPs
 #WAPs <- grep("WAP",names(cleantrainset), value = TRUE)
 
@@ -359,24 +359,20 @@ registerDoParallel(cl)
 ##Create training and test sets 1 (2 samples with 20% data each)
 set.seed(123)
 
-inTraining1 <- createDataPartition(cleantrainset$BUILDINGID, times = 2, p = .02)
+inTraining1 <- createDataPartition(cleantrainset$BUILDINGID, times = 1, p = .02)
 
 training1 <- cleantrainset[inTraining1$Resample1,]
-test1 <- cleantrainset[inTraining1$Resample2,]
 
 ##Check distribution of observations in buildings
 ggplot(cleantrainset, aes(LATITUDE,LONGITUDE)) + geom_point()
 ggplot(training1, aes(LATITUDE,LONGITUDE)) + geom_point()
-ggplot(test1, aes(LATITUDE,LONGITUDE)) + geom_point()
-
 
 ##Create 10-fold cross-validation
-fitcontrol <- trainControl(method = "repeatedcv",number = 10,repeats = 10)
+fitcontrol <- trainControl(method = "repeatedcv",allowParallel = TRUE,number = 10,repeats = 10)
 
 #K-NN (312 WAPs, sample 399 rows)
 ##Train k-nn1 (312 WAPs)
-knnFit1 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
-                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
+knnFit1 <- train(x= training1[WAPs],y = training1$BUILDINGID,
                  data = training1, method = "knn", preProc = c("center","scale"), 
                  tuneLength = 15, trControl = fitcontrol)
 
@@ -394,7 +390,7 @@ confusionMatrix(data = testknn1, test1$BUILDINGID)
 
 #RF1 (312 WAPs, sample 399 rows)
 ##Train RF1 (312 WAPs)
-RFfit1 <- train(BUILDINGID~.-LONGITUDE-LATITUDE-FLOOR-SPACEID
+RFfit1 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
                 data = training1, method = "rf", 
                 preProc = c("center","scale"), ntree= 20, 
@@ -412,26 +408,83 @@ postResample(testRF1, test1$BUILDINGID)
 #Plot confusion matrix RF1
 confusionMatrix(data = testRF1, test1$BUILDINGID)
 
-#SVM1 (312 WAPs, sample 399 rows)
-##Train SVM1 (312 WAPs)
-SVMLinearfit1 <- train(BUILDINGID~.-LONGITUDE-LATITUDE-FLOOR-SPACEID
-                -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
+#SVMLinear1 (312 WAPs, sample 399 rows)
+##Train SVMLinear1 (312 WAPs)
+SVMLinearfit1 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+                       -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
                 data = training1, method = "svmLinear", 
                 preProc = c("center","scale"),  
                 tuneLength = 15, trControl = fitcontrol)
 
 SVMLinearfit1
 
-#Apply SVM1 to test set
+#Apply SVMLinear1 to test set
 testSVMLinear1 <- predict(SVMLinearfit1, test1)
 
-#postResample SVM1 to assess the metrics of the predictions
+#postResample SVMLinear1 to assess the metrics of the predictions
 postResample(testSVMLinear1, test1$BUILDINGID)
 ##Accuracy 1, Kappa 1 
 
-#Plot confusion matrix SVM1
+#Plot confusion matrix SVMLinear1
 confusionMatrix(data = testSVMLinear1, test1$BUILDINGID)
 
+#SVMPoly1 (312 WAPs, sample 399 rows)
+##Train SVMPoly1 (312 WAPs)
+SVMPolyfit1 <- train(y=training1$BUILDINGID, x= training1[WAPs],
+                       data = training1, method = "svmPoly", 
+                       preProc = c("center","scale"),  
+                       tuneLength = 15, trControl = fitcontrol)
+
+SVMPolyfit1
+
+#Apply SVMPoly1 to test set
+testSVMPoly1 <- predict(SVMPolyfit1, test1)
+
+#postResample SVMPoly1 to assess the metrics of the predictions
+postResample(testSVMPoly1, test1$BUILDINGID)
+##Accuracy 1, Kappa 1 
+
+#Plot confusion matrix SVMPoly1
+confusionMatrix(data = testSVMPoly1, test1$BUILDINGID)
 
 
+#Extreme Gradient Boosting Tree (312 WAPs, sample 399 rows)
+##Train xgbTree1 (312 WAPs)
+xgbTreefit1 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+                     -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
+                     data = training1, method = "xgbTree", 
+                     preProc = c("center","scale"),  
+                     nrounds = 2,
+                     tuneLength = 15, trControl = fitcontrol)
 
+xgbTreefit1
+
+#Apply xgbTree1 to test set
+testxgbTree1 <- predict(xgbTreefit1, test1)
+
+#postResample xgbTree1 to assess the metrics of the predictions
+postResample(testxgbTree1, test1$BUILDINGID)
+##Accuracy , Kappa  
+
+#Plot confusion matrix xgbTree1
+confusionMatrix(data = testxgbTree1, test1$BUILDINGID)
+
+#Naive Bayes (312 WAPs, sample 399 rows)
+##Train NBfit1 (312 WAPs)
+NBfit1 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+                -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
+                     data = training1, method = "naive_bayes", 
+                     preProc = c("center","scale"), 
+                     tuneLength = 15, trControl = fitcontrol)
+
+NBfit1
+
+#Apply NBfit1 to test set
+testNBfit1 <- predict(NBfit1, test1)
+
+#postResample NBfit1 to assess the metrics of the predictions
+postResample(testNBfit1, test1$BUILDINGID)
+##Accuracy 0.7343, Kappa 0.5589  
+
+#Plot confusion matrix NBfit1
+confusionMatrix(data = testNBfit1, test1$BUILDINGID)
