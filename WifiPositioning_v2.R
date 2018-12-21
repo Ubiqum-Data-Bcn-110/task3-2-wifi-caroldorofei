@@ -10,21 +10,7 @@ validation <- read.csv("validationData.csv")
 
 #Libraries ----
 pacman::p_load(dplyr,ggplot2,reshape2,rlist,prob,caret,lattice,kazaam,pbdMPI,plotly)
-library(dplyr)
-library(ggplot2)
-library(reshape2)
-library(rlist)
-library(prob)
-library(caret)
-library(lattice)
-library(base)
-library(kazaam)
-library(pbdMPI)
-library(doParallel)
-library(foreach)
-library(iterators)
-library(parallel)
-library(plotly)
+
 
 #Data Preprocessing ----
 ##Converting floor and building into factors
@@ -110,6 +96,20 @@ cleantrainset3$BuildingFloor <- as.factor(cleantrainset3$BuildingFloor)
 cleanvalidation$BuildingFloor <- paste0("B",cleanvalidation$BUILDINGID,"F",cleanvalidation$FLOOR)
 cleanvalidation$BuildingFloor <- as.factor(cleanvalidation$BuildingFloor)
 
+
+#WEIGHTED DATASETS
+clean3WAPs <- cleantrainset3[,1:312]
+clean3noWAPs <- cleantrainset3[,313:322]
+cleantrainset3.2 <- cbind(as.data.frame(apply(clean3WAPs,2,function(x) 
+  ifelse (x >= -70, x-x*0.2,x))),clean3noWAPs)
+
+clean3WAPs_Val <- cleanvalidation[,1:312]
+clean3noWAPs_Val <- cleanvalidation[,313:322]
+cleanvalidation3.2 <- cbind(as.data.frame(apply(clean3WAPs_Val,2,function(x) 
+  ifelse (x >= -70, x-x*0.2,x))),clean3noWAPs_Val)
+
+
+
 ##Creating datasets for each building ----
 cleanbuilding0 <- cleantrainset[cleantrainset$BUILDINGID == 0,]
 cleanbuilding1 <- cleantrainset[cleantrainset$BUILDINGID == 1,]
@@ -133,9 +133,7 @@ ggplot(training1, aes(LATITUDE,LONGITUDE)) + geom_point()
 
 ##Create training and test sets 3 (sample with 20% data)
 inTraining3 <- createDataPartition(cleantrainset3$BUILDINGID, times = 1, p = .3)
-
 training3 <- cleantrainset3[inTraining3$Resample1,]
-
 training3.Regr <- training3
 training3.Regr$BUILDINGID <- as.numeric(training3.Regr$BUILDINGID)
 
@@ -144,6 +142,13 @@ fitcontrol <- trainControl(method = "repeatedcv",number = 2,repeats = 2)
 
 #K-NN BUILDING (312 WAPs, sample 399 rows)
 ##Train k-nn1 (312 WAPs)
+#knnFit1 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+#                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
+#                 data = training3, method = "knn", preProc = c("center","scale"), 
+#                 tuneLength = 15, trControl = fitcontrol)
+
+
+
 knnFit1 <- readRDS("knnSampleBuilding.rds")
 knnFit1
 #Accuracy 0.9927, Kappa 0.9884
@@ -226,6 +231,27 @@ postResample(Predicted_BuildingSVMLinear4, cleanvalidation$BUILDINGID)
 #Plot confusion matrix SVMLinear4
 confusionMatrix(data = Predicted_BuildingSVMLinear4, cleanvalidation$BUILDINGID)
 
+#SVMLinear5 Weighted BUILDING (312 WAPs, 19861 rows)
+##Train SVMLinear5 (312 WAPs)
+SVMLinearfit5 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+                       -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-BuildingFloor,
+                       data = cleantrainset3.2, method = "svmLinear", 
+                       tuneLength = 15, trControl = fitcontrol)
+
+SVMLinearfit5
+
+#Apply SVMLinear5 to validation set
+Predicted_BuildingSVMLinear5 <- predict(SVMLinearfit5, cleanvalidation3.2)
+
+#postResample SVMLinear1 to assess the metrics of the predictions
+postResample(Predicted_BuildingSVMLinear5, cleanvalidation3.2$BUILDINGID)
+##Accuracy 0.9991, Kappa 0.9986 
+
+#Plot confusion matrix SVMLinear5
+confusionMatrix(data = Predicted_BuildingSVMLinear5, cleanvalidation$BUILDINGID)
+
+validationBUILDING$RealBuilding <- cleanvalidation$BUILDINGID
+filter(validationBUILDING, BUILDINGID == 1) %>% filter(validationBUILDING, RealBuilding == 0)
 
 ###MODELLING FLOOR ----
 
@@ -402,19 +428,19 @@ B0_trainset3v2$BuildingFloor <- NULL
 B0_validationBUILDINGv2 <- B0_validationBUILDING
 B0_validationBUILDINGv2$BuildingFloor <- NULL
 
-SVMLinearFloor2_B0v2 <- train(FLOOR~. -LONGITUDE-LATITUDE-SPACEID
-                         -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-                         data = B0_trainset3v2, method = "svmLinear", 
-                         tuneLength = 15, trControl = fitcontrol)
+#SVMLinearFloor2_B0v2 <- train(FLOOR~. -LONGITUDE-LATITUDE-SPACEID
+#                         -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
+#                         data = B0_trainset3v2, method = "svmLinear", 
+#                         tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearFloor2_B0 <- readRDS("SVMLinear2Floor_B0.rds")
+SVMLinearFloor2_B0v2 <- readRDS("SVMLinear2Floor_B0.rds")
 SVMLinearFloor2_B0v2
 
 #Apply SVMLinear1 Floor to test set
 Predicted_FloorSVMLinear2_B0v2 <- predict(SVMLinearFloor2_B0v2, B0_validationBUILDINGv2)
 
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
-postResample(Predicted_FloorSVMLinear2_B0v2, B0_validation3$FLOOR)
+postResample(Predicted_FloorSVMLinear2_B0v2, B0_validationBUILDINGv2$FLOOR)
 ##Accuracy 0.9477, Kappa 0.9265 
 
 
@@ -441,16 +467,12 @@ postResample(Predicted_FloorSVMLinear2_B1, B1_validation3$BuildingFloor)
 #Plot confusion matrix SVMLinear2
 confusionMatrix(data = Predicted_FloorSVMLinear2_B1, B1_validation3$BuildingFloor)
 
-#Plot confusion matrix RF2
-confusionMatrix(data = Predicted_FloorRF2_B1, B1_validation3$BuildingFloor)
-
-
 #RF Floor BUILDING 1
 ##Train RF Floor 
-RFFloor2_B1 <- train(BuildingFloor~. -LONGITUDE-LATITUDE-SPACEID
-                            -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-FLOOR,
-                            data = B1_trainset3, method = "rf", ntree = 20, 
-                            tuneLength = 15, trControl = fitcontrol)
+#RFFloor2_B1 <- train(BuildingFloor~. -LONGITUDE-LATITUDE-SPACEID
+#                            -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-FLOOR,
+#                            data = B1_trainset3, method = "rf", ntree = 20, 
+#                            tuneLength = 15, trControl = fitcontrol)
 
 RFFloor2_B1 <- readRDS("RF2Floor_B1.rds")
 RFFloor2_B1
@@ -465,6 +487,8 @@ postResample(Predicted_FloorRF2_B1, B1_validation3$BuildingFloor)
 #Plot confusion matrix RF2
 confusionMatrix(data = Predicted_FloorRF2_B1, B1_validation3$BuildingFloor)
 
+
+#Error analysis
 checkVal_B1F2 <- B1_validation3
 checkVal_B1F2$PredFloor <- Predicted_FloorRF2_B1
 checkVal_B1F2 <- filter(checkVal_B1F2, Predicted_FloorRF2_B1 == "B1F2" & BuildingFloor == "B1F1")
@@ -483,10 +507,26 @@ ggplot(checkVal_B1F2a, aes(checkVal_B1F2a$LATITUDE,checkVal_B1F2a$LONGITUDE, col
 #Range Longitude -7569 to -7474
 #Range Latitude 4864840 to 4864901
 
-checkRangeB1F2 <- B1_trainset3 %>% filter(LONGITUDE >= -7569 & LONGITUDE <= -7474) %>%
-  filter(LATITUDE >= 4864840 & LATITUDE <= 4864901)
+checkRangeB1F1 <- B1_trainset3 %>% filter(LONGITUDE >= -7569 & LONGITUDE <= -7474) %>%
+  filter(LATITUDE >= 4864840 & LATITUDE <= 4864901) %>% filter(BuildingFloor == "B1F1")
+
+checkRangeB1F1Train <- B1_trainset3 %>% filter(BuildingFloor == "B1F1")
+
+checkRangeB1F1Train$Train_error <- "Training"
+
+checkRangeB1F1Error <- checkVal_B1F2[,1:156]
+
+checkRangeB1F1Error$Train_error <- "Error"
+
+checkTrainError <- rbind(checkRangeB1F1Train,checkRangeB1F1Error)
+
+ggplot(checkRangeB1F1Train,aes(checkRangeB1F1Train$LATITUDE,checkRangeB1F1Train$LONGITUDE)) +
+  geom_point()
 
 
+#The plot below shows the trainset points in B0 floor 1 and the 37/42 errors 
+ggplot(checkTrainError,aes(checkTrainError$LATITUDE,checkTrainError$LONGITUDE, colour = checkTrainError$Train_error)) +
+  geom_point()
 
 
 checkVal_B1F3 <- B1_validation3
@@ -507,10 +547,6 @@ ggplot(checkVal_B1F3a, aes(checkVal_B1F3a$LATITUDE,checkVal_B1F3a$LONGITUDE, col
 
 ggplot(B1_trainset3, aes(B1_trainset3$LATITUDE,B1_trainset3$LONGITUDE)) +
   geom_point()
-
-
-
-
 
 
 #SVMLinear Floor BUILDING 2
@@ -710,6 +746,13 @@ RFLatitude1_B2 <- predict(RFLatitudefit1_B2, B2_validationBUILDING.Regr)
 postResample(RFLatitude1_B2, B2_validation3.Regr$LATITUDE)
 ##RMSE 11.78, Rsquared 0.83, MAE 8.02
 
+#Error analysis
+ErrorLatitude_RF_B2 <- RFLatitude1_B2 - B2_validation3.Regr$LATITUDE
+hist(ErrorLatitude_RF_B2)
+
+
+
+
 #LONGITUDE ----
 #K-NN Longitude (312 WAPs + Predicted Building, )
 ##Train k-nn1 LONGITUDE (312 WAPs)
@@ -729,8 +772,9 @@ knnLongitude1 <- predict(knnLongitudefit1, validationBUILDING.Regr)
 postResample(knnLongitude1, validationBUILDING.Regr$LONGITUDE)
 ##RMSE 18.91, Rsquared 0.97, MAE 8.28 
 
-#Plot confusion matrix k-nn1
-confusionMatrix(data = knnLongitude1, validationBUILDING.Regr$BuildingFloor)
+#Error analysis
+ErrorLongitude_knn <- knnLongitude1 - validationBUILDING.Regr$LONGITUDE
+hist(ErrorLongitude_knn)
 
 
 #RF Longitude (312 WAPs + Predicted Building, )
@@ -753,8 +797,9 @@ RFLongitude1 <- predict(RFLongitudefit1, validationBUILDING.Regr)
 postResample(RFLongitude1, cleanvalidation$LONGITUDE)
 ##RMSE 12.55, Rsquared 0.989, MAE 7.88 
 
-#Plot confusion matrix RF1
-confusionMatrix(data = RFLongitude1, cleanvalidation$BuildingFloor)
+#Error analysis
+ErrorLongitude_RF <- RFLongitude1 - validationBUILDING.Regr$LONGITUDE
+hist(ErrorLongitude_RF)
 
 
 
@@ -777,8 +822,9 @@ SVMLinearLongitude1 <- predict(SVMLinearLongitudefit1, validationBUILDING.Regr)
 postResample(SVMLinearLongitude1, validationBUILDING.Regr$LONGITUDE)
 ##RMSE 17.64, Rsquared 0.97, MAE 13.30 
 
-#Plot confusion matrix RF1
-confusionMatrix(data = SVMLinearLongitude1, validationBUILDING.Regr$BuildingFloor)
+#Error analysis
+ErrorLongitude_SVM <- SVMLinearLongitude1 - validationBUILDING.Regr$LONGITUDE
+hist(ErrorLongitude_SVM)
 
 
 
@@ -801,13 +847,20 @@ RFLongitude1_B0 <- predict(RFLongitudefit1_B0, B0_validationBUILDING.Regr)
 postResample(RFLongitude1_B0, B0_validation3.Regr$LONGITUDE)
 ##RMSE 8.27, Rsquared 0.90, MAE 5.32 
 
+#Error analysis
+ErrorLongitude_RF_B0 <- RFLongitude1_B0 - B0_validation3.Regr$LONGITUDE
+hist(ErrorLongitude_RF_B0)
+
+
+
 ##Train RF1 LONGITUDE B1
 #RFLongitudefit1_B1 <- train(LONGITUDE~. -LATITUDE-SPACEID
 #                           -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-FLOOR-BuildingFloor,
 #                           data = B1_trainset3.Regr, method = "rf", ntree = 5,preProc = c("center","scale"), 
-#                           tuneLength = 15, trControl = fitcontrol)
+#                           tuneLength = 15)
 
-RFLongitudefit1_B1 <- readRDS("RFLatitudefit1_B1.rds")
+
+RFLongitudefit1_B1 <- readRDS("RFLongitudefit1_B1.rds")
 RFLongitudefit1_B1
 
 #Apply RF1 to test set
@@ -817,15 +870,18 @@ RFLongitude1_B1 <- predict(RFLongitudefit1_B1, B1_validationBUILDING.Regr)
 
 #postResample RF1 to assess the metrics of the predictions
 postResample(RFLongitude1_B1, B1_validation3.Regr$LONGITUDE)
-##RMSE 9.97, Rsquared 0.95, MAE 7.27 
+##RMSE 10.59, Rsquared 0.95, MAE 7.76 
 
+#Error analysis
+ErrorLongitude_RF_B1 <- RFLongitude1_B1 - B1_validation3.Regr$LONGITUDE
+hist(ErrorLongitude_RF_B1)
 
 
 ##Train RF1 LONGITUDE B2
 #RFLongitudefit1_B2 <- train(LONGITUDE~. -LATITUDE-SPACEID
 #                           -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP-FLOOR-BuildingFloor,
 #                           data = B2_trainset3.Regr, method = "rf", ntree = 5,preProc = c("center","scale"), 
-#                           tuneLength = 15, trControl = fitcontrol)
+#                           tuneLength = 15,trControl = fitcontrol)
 
 RFLongitudefit1_B2 <- readRDS("RFLongitudefit1_B2.rds")
 RFLongitudefit1_B2
@@ -834,10 +890,9 @@ RFLongitudefit1_B2
 
 RFLongitude1_B2 <- predict(RFLongitudefit1_B2, B2_validationBUILDING.Regr)
 
-
 #postResample RF1 to assess the metrics of the predictions
-postResample(RFLongitude1_B2, B2_validation3.Regr$LONGITUDE)
-##RMSE 12.04, Rsquared 0.85, MAE 8.01
+postResample(RFLongitude1_B2, B2_validationBUILDING.Regr$LONGITUDE)
+##RMSE 12.60, Rsquared 0.84, MAE 8.37
 
 #ERROR ANALYSIS ----
 ##Create validation set with predicted LAT & LONG
@@ -876,19 +931,36 @@ ggplot(validationLatLong_B0) +
   geom_point(aes(validationLatLong_B0$LONGITUDE,validationLatLong_B0$LATITUDE))
 
 
+#Check unique points (LAT/LONG) in trainset and validation
 
+LatLong <- trainset %>% select(LATITUDE,LONGITUDE)
 
-cleantraining3.2 <- cleantrainset3
-cleantraining3.2[cleantraining3.2[,1:312] >= 70] <- 
-  
-  
-  
-  
-  for (i in 1:312){
-    
-  }
+uniqueLatLong <- unique(LatLong)
+#692 unique combinations
 
+uniqueLatLong$Train_Val <- "Train"
 
+ggplot(uniqueLatLong,aes(uniqueLatLong$LATITUDE,uniqueLatLong$LONGITUDE))+
+  geom_point()
+
+LatLong_Val <- validation %>% select(LATITUDE,LONGITUDE)
+
+uniqueLatLong_Val <- unique(LatLong_Val)
+#1068 unique combinations
+uniqueLatLong_Val$Train_Val <- "Validation"
+
+ggplot(uniqueLatLong_Val,aes(uniqueLatLong_Val$LATITUDE,uniqueLatLong_Val$LONGITUDE))+
+  geom_point()
+
+uniqueTrain_Val <- rbind(uniqueLatLong,uniqueLatLong_Val) 
+
+plot_ly(x=uniqueTrain_Val$LATITUDE,y=uniqueTrain_Val$LONGITUDE,z=uniqueTrain_Val$Train_Val,
+        color=uniqueTrain_Val$Train_Val,
+        type = "scatter3d",mode="markers")
+
+ggplot(uniqueTrain_Val,aes(uniqueTrain_Val$LATITUDE,uniqueTrain_Val$LONGITUDE,
+                           colour=uniqueTrain_Val$Train_Val))+
+  geom_point()
 
 plot_ly(x=validationLatLong_B0Compl$LATITUDE,y=validationLatLong_B0Compl$LONGITUDE,
         z=validationLatLong_B0Compl$FLOOR,
@@ -897,3 +969,5 @@ plot_ly(x=validationLatLong_B0Compl$LATITUDE,y=validationLatLong_B0Compl$LONGITU
 
 
 
+
+  
