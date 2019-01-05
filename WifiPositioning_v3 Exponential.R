@@ -208,18 +208,28 @@ cleanvalidation_Exp2$BuildingFloor <- as.factor(cleanvalidation_Exp2$BuildingFlo
 fitcontrol <- trainControl(method = "repeatedcv",number = 2,repeats = 2)
 
 #SVMLinear BUILDING 
+##Data partition ----
+set.seed(123)
+
+inTraining2<- createDataPartition(cleantrainset2$BUILDINGID, times = 1, p = .1)
+
+training2 <- cleantrainset[inTraining2$Resample1,]
+
+inTraining3<- createDataPartition(cleantrainset3$BUILDINGID, times = 1, p = .1)
+
+training3 <- cleantrainset[inTraining3$Resample1,]
+
+
 ##MODEL 1 BUILDING - Train SVMLinear Exp CLEANTRAINSET2 ----
-SVMLinearfit2 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
-                       -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-                      data = cleantrainset2, method = "svmLinear", 
-                       tuneLength = 15, trControl = fitcontrol)
+#SVMLinearfit2 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+#                       -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
+#                      data = cleantrainset2, method = "svmLinear", 
+#                       tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearfit2
+SVMLinearfit2BUILDING <- readRDS("SVMLinearfit2BUILDING.rds")
 
-#Apply SVMLinear2 to validation set
-Predicted_BuildingSVMLinear2 <- predict(SVMLinearfit2, cleanvalidation)
+Predicted_BuildingSVMLinear2 <- predict(SVMLinearfit2BUILDING, cleanvalidation)
 
-#postResample SVMLinear1 to assess the metrics of the predictions
 postResample(Predicted_BuildingSVMLinear2, cleanvalidation$BUILDINGID)
 ##Accuracy 1, Kappa 1 
 
@@ -227,15 +237,15 @@ postResample(Predicted_BuildingSVMLinear2, cleanvalidation$BUILDINGID)
 confusionMatrix(data = Predicted_BuildingSVMLinear2, cleanvalidation$BUILDINGID)
 
 ##MODEL 2 BUILDING - Train SVMLinear CLEANTRAINSET3----
-SVMLinearfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
-                      -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-                      data = cleantrainset3, method = "svmLinear", 
-                      tuneLength = 15, trControl = fitcontrol)
+#SVMLinearfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+#                      -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
+#                      data = cleantrainset3, method = "svmLinear", 
+#                      tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearfit3
+SVMLinearfit3BUILDING <- readRDS("SVMLinearfit3BUILDING.rds")
 
 #Apply SVMLinear2 to validation set
-Predicted_BuildingSVMLinear3 <- predict(SVMLinearfit3, cleanvalidation)
+Predicted_BuildingSVMLinear3 <- predict(SVMLinearfit3BUILDING, cleanvalidation)
 
 #postResample SVMLinear1 to assess the metrics of the predictions
 postResample(Predicted_BuildingSVMLinear3, cleanvalidation$BUILDINGID)
@@ -250,58 +260,58 @@ confusionMatrix(data = Predicted_BuildingSVMLinear3, cleanvalidation$BUILDINGID)
 #                       data = cleantrainset2, method = "knn", 
 #                       tuneLength = 15, trControl = fitcontrol)
 
-KNNfit2
-#Apply to validation set
-Predicted_BuildingKNN2 <- predict(KNNfit2, cleanvalidation)
-#postResample to assess the metrics of the predictions
+KNNfit2BUILDING <- readRDS("KNNfit2BUILDING.rds")
+
+Predicted_BuildingKNN2 <- predict(KNNfit2BUILDING, cleanvalidation)
+
 postResample(Predicted_BuildingKNN2, cleanvalidation$BUILDINGID)
-##Accuracy 0., Kappa 0. 
-#Plot confusion matrix SVMLinear2
+##Accuracy 0.9981, Kappa 0.9972 
+
 confusionMatrix(data = Predicted_BuildingKNN2, cleanvalidation$BUILDINGID)
 
 ##MODEL 4 BUILDING - Train k-nn CLEANTRAINSET3 ----
 #KNNfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
 #                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-#                 data = cleantrainset3, method = "knn", 
+#                 data = training3, method = "knn", 
 #                 tuneLength = 15, trControl = fitcontrol)
 
-KNNfit3
-#Apply to validation set
-Predicted_BuildingKNN3 <- predict(KNNfit3, cleanvalidation)
-#postResample to assess the metrics of the predictions
+KNNfit3BUILDING <- readRDS("KNNfit3BUILDING.rds")
+
+Predicted_BuildingKNN3 <- predict(KNNfit3BUILDING, cleanvalidation)
+
 postResample(Predicted_BuildingKNN3, cleanvalidation$BUILDINGID)
-##Accuracy 0., Kappa 0. 
-#Plot confusion matrix
+##Accuracy 0.9784, Kappa 0.9660 
+
 confusionMatrix(data = Predicted_BuildingKNN3, cleanvalidation$BUILDINGID)
 
 ##MODEL 5 BUILDING - Train RF CLEANTRAINSET2 ----
 #RFfit2 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
 #                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-#                 data = cleantrainset2, method = "rf",ntree=5, 
+#                 data = training2, method = "rf",ntree=5, 
 #                 tuneLength = 15, trControl = fitcontrol)
 
-RFfit2
-#Apply to validation set
-Predicted_BuildingRF2 <- predict(RFfit2, cleanvalidation)
-#postResample to assess the metrics of the predictions
+RFfit2BUILDING <- readRDS("RFfit2BUILDING.rds")
+
+Predicted_BuildingRF2 <- predict(RFfit2BUILDING, cleanvalidation)
+
 postResample(Predicted_BuildingRF2, cleanvalidation$BUILDINGID)
-##Accuracy 0., Kappa 0. 
-#Plot confusion matrix 
+##Accuracy 0.9928, Kappa 0.9886 
+
 confusionMatrix(data = Predicted_BuildingRF2, cleanvalidation$BUILDINGID)
 
 ##MODEL 6 BUILDING - Train RF CLEANTRAINSET3 ----
 #RFfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
 #                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-#                 data = cleantrainset3, method = "knn",ntree=5, 
+#                 data = training3, method = "rf",ntree=5, 
 #                 tuneLength = 15, trControl = fitcontrol)
 
-RFfit3
-#Apply to validation set
-Predicted_BuildingRF3 <- predict(RFfit3, cleanvalidation)
-#postResample to assess the metrics of the predictions
+RFfit3BUILDING <- readRDS("RFfit3BUILDING.rds")
+
+Predicted_BuildingRF3 <- predict(RFfit3BUILDING, cleanvalidation)
+
 postResample(Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
-##Accuracy 0., Kappa 0. 
-#Plot confusion matrix
+##Accuracy 0.98, Kappa 0.97 
+
 confusionMatrix(data = Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
 
 ###MODELLING FLOOR ----
@@ -531,44 +541,14 @@ B2_train3Exp$FLOOR <- factor(B2_train3Exp$FLOOR)
 B2_validation_Exp$BUILDINGID <- factor(B2_validation_Exp$BUILDINGID)
 B2_validation_Exp$FLOOR <- factor(B2_validation_Exp$FLOOR)
 
-#----
-  
-B0_trainset3.Regr <- B0_trainset3
-B0_trainset3.Regr$BUILDINGID <- 0
-B1_trainset3.Regr <- B1_trainset3
-B1_trainset3.Regr$BUILDINGID <- 1
-B2_trainset3.Regr <- B2_trainset3
-B2_trainset3.Regr$BUILDINGID <- 2
-
-B0_validation3.Regr <- data.frame(B0_validation3)
-B0_validation3.Regr$BUILDINGID <- 0
-
-B1_validation3.Regr <- B1_validation3
-B1_validation3.Regr$BUILDINGID <- 1
-
-B2_validation3.Regr <- B2_validation3
-B2_validation3.Regr$BUILDINGID <- 2
-
-B0_validationBUILDING.Regr <- B0_validationBUILDING
-B0_validationBUILDING.Regr$BUILDINGID <- 0
-
-B1_validationBUILDING.Regr <- B1_validationBUILDING
-B1_validationBUILDING.Regr$BUILDINGID <- 1
-
-B2_validationBUILDING.Regr <- B2_validationBUILDING
-B2_validationBUILDING.Regr$BUILDINGID <- 2
-
-
-
-
 ##MODELS ----
 #MODEL 1 B0 FLOOR Floor_B0_SVM2----
 ##Train SVMLinear Floor 
-SVMLinearFloor2_B0 <- train(y=B0_train2$FLOOR,x=B0_train2[,c(1:139)],
-                     data = B0_train2, method = "svmLinear",
-                     tuneLength = 15, trControl = fitcontrol)
+#SVMLinearFloor2_B0 <- train(y=B0_train2$FLOOR,x=B0_train2[,c(1:139)],
+#                     data = B0_train2, method = "svmLinear",
+#                     tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearFloor2_B0
+SVMLinearFloor2_B0 <- readRDS("SVMLinearFloor2_B0.rds")
 
 #Apply SVMLinear1 Floor to test set
 Predicted_FloorSVMLinear2_B0 <- predict(SVMLinearFloor2_B0, B0_validation[,1:139])
@@ -596,33 +576,31 @@ ggplotConfusionMatrix <- function(m){
 ggplotConfusionMatrix(cf1)
 
 #MODEL 2 B0 FLOOR Floor_B0_SVM2Exp ----
-SVMLinearFloor2Exp_B0 <- train(y=B0_train2Exp$FLOOR,x=B0_train2Exp[,c(1:139)],
-                            data = B0_train2Exp, method = "svmLinear",
-                            tuneLength = 15, trControl = fitcontrol)
+#SVMLinearFloor2Exp_B0 <- train(y=B0_train2Exp$FLOOR,x=B0_train2Exp[,c(1:139)],
+#                            data = B0_train2Exp, method = "svmLinear",
+#                            tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearFloor2Exp_B0
+#SVMLinearFloor2Exp_B0
 
 #Apply SVMLinear1 Floor to test set
-Predicted_FloorSVMLinear2Exp_B0 <- predict(SVMLinearFloor2Exp_B0, B0_validation[,1:139])
+#Predicted_FloorSVMLinear2Exp_B0 <- predict(SVMLinearFloor2Exp_B0, B0_validation[,1:139])
 
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
-Floor_B0_SVM2Exp <- postResample(Predicted_FloorSVMLinear2Exp_B0, B0_validation$FLOOR)
+#Floor_B0_SVM2Exp <- postResample(Predicted_FloorSVMLinear2Exp_B0, B0_validation$FLOOR)
 ##Accuracy 0.388, Kappa 0 
 
 #Plot confusion matrix SVMLinear2
-confusionMatrix(data = Predicted_FloorSVMLinear2Exp_B0, B0_validation$FLOOR)
+#confusionMatrix(data = Predicted_FloorSVMLinear2Exp_B0, B0_validation$FLOOR)
 
 #MODEL 3 B0 FLOOR Floor_B0_RF2 ----
-RFFloor2_B0 <- train(y=B0_train3$FLOOR,x=B0_train3[,c(1:139)],
-                     data = B0_train2, method = "rf",ntree=5,
-                     tuneLength = 15)
+#RFFloor2_B0 <- train(y=B0_train3$FLOOR,x=B0_train3[,c(1:139)],
+#                     data = B0_train2, method = "rf",ntree=5,
+#                     tuneLength = 15)
 
-RFFloor2_B0
+RFFloor2_B0 <- readRDS("RFFloor2_B0.rds")
 
-#Apply SVMLinear1 Floor to test set
 Predicted_RFFloor2_B0 <- predict(RFFloor2_B0, B0_validation)
 
-#postResample SVMLinear1 Floor to assess the metrics of the predictions
 Floor_B0_RF2 <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
 ##Accuracy 0.93, Kappa 0.91 
 
