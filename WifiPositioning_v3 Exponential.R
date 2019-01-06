@@ -202,6 +202,21 @@ cleanvalidation_Exp2$BuildingFloor <- paste0("B",cleanvalidation_Exp2$BUILDINGID
 cleanvalidation_Exp2$BuildingFloor <- as.factor(cleanvalidation_Exp2$BuildingFloor)
 
 
+
+#GGPLOT CONFUSION MATRIX----
+ggplotConfusionMatrix <- function(m){
+  mytitle <- paste("Accuracy", round(as.numeric(m$overall[1]),3),
+                   "Kappa", round(as.numeric(m$overall[2]),2))
+  p <- ggplot(data = as.data.frame(m$table) ,
+              aes(x = Reference, y = Prediction)) +
+    geom_tile(aes(fill = log(Freq)), colour = "white") +
+    scale_fill_gradient(low="white",high = "steelblue",na.value = "white") +
+    geom_text(aes(x = Reference, y = Prediction, label = Freq)) +
+    ggtitle(mytitle) +
+    theme(legend.position = "none") 
+  return(p)
+}
+
 #MODELLING - BUILDING ----
 
 ##Create 10-fold cross-validation ----
@@ -220,7 +235,7 @@ inTraining3<- createDataPartition(cleantrainset3$BUILDINGID, times = 1, p = .1)
 training3 <- cleantrainset[inTraining3$Resample1,]
 
 
-##MODEL 1 BUILDING - Train SVMLinear Exp CLEANTRAINSET2 ----
+##MODEL 1 BUILDING - Train SVMLinear CLEANTRAINSET2 ----
 #SVMLinearfit2 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
 #                       -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
 #                      data = cleantrainset2, method = "svmLinear", 
@@ -248,7 +263,7 @@ SVMLinearfit3BUILDING <- readRDS("SVMLinearfit3BUILDING.rds")
 Predicted_BuildingSVMLinear3 <- predict(SVMLinearfit3BUILDING, cleanvalidation)
 
 #postResample SVMLinear1 to assess the metrics of the predictions
-postResample(Predicted_BuildingSVMLinear3, cleanvalidation$BUILDINGID)
+Building_SVMLinear <- postResample(Predicted_BuildingSVMLinear3, cleanvalidation$BUILDINGID)
 ##Accuracy 1, Kappa 1 
 
 #Plot confusion matrix SVMLinear2
@@ -269,7 +284,7 @@ postResample(Predicted_BuildingKNN2, cleanvalidation$BUILDINGID)
 
 confusionMatrix(data = Predicted_BuildingKNN2, cleanvalidation$BUILDINGID)
 
-##MODEL 4 BUILDING - Train k-nn CLEANTRAINSET3 ----
+##MODEL 4 BUILDING - Train k-nn SAMPLE CLEANTRAINSET3 ----
 #KNNfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
 #                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
 #                 data = training3, method = "knn", 
@@ -279,27 +294,30 @@ KNNfit3BUILDING <- readRDS("KNNfit3BUILDING.rds")
 
 Predicted_BuildingKNN3 <- predict(KNNfit3BUILDING, cleanvalidation)
 
-postResample(Predicted_BuildingKNN3, cleanvalidation$BUILDINGID)
+Building_KNN_Sample <- postResample(Predicted_BuildingKNN3, cleanvalidation$BUILDINGID)
 ##Accuracy 0.9784, Kappa 0.9660 
 
 confusionMatrix(data = Predicted_BuildingKNN3, cleanvalidation$BUILDINGID)
 
-##MODEL 5 BUILDING - Train RF CLEANTRAINSET2 ----
-#RFfit2 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
-#                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
-#                 data = training2, method = "rf",ntree=5, 
-#                 tuneLength = 15, trControl = fitcontrol)
-
+##MODEL 5 BUILDING - Train RF CLEANTRAINSET3 ----
+RFfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
+                 data = cleantrainset3, method = "rf",ntree=5, 
+                 tuneLength = 15, trControl = fitcontrol)
+RFfit3
 RFfit2BUILDING <- readRDS("RFfit2BUILDING.rds")
 
-Predicted_BuildingRF2 <- predict(RFfit2BUILDING, cleanvalidation)
 
-postResample(Predicted_BuildingRF2, cleanvalidation$BUILDINGID)
-##Accuracy 0.9928, Kappa 0.9886 
+Predicted_BuildingRF3 <- predict(RFfit3, cleanvalidation)
 
-confusionMatrix(data = Predicted_BuildingRF2, cleanvalidation$BUILDINGID)
+Building_RF <- postResample(Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
+##Accuracy 0.9955, Kappa 0.9929 
 
-##MODEL 6 BUILDING - Train RF CLEANTRAINSET3 ----
+cfm1 <- confusionMatrix(data = Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
+
+ggplotConfusionMatrix(cfm1)
+
+##MODEL 6 BUILDING - Train RF SAMPLE CLEANTRAINSET3 ----
 #RFfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
 #                 -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
 #                 data = training3, method = "rf",ntree=5, 
@@ -309,11 +327,40 @@ RFfit3BUILDING <- readRDS("RFfit3BUILDING.rds")
 
 Predicted_BuildingRF3 <- predict(RFfit3BUILDING, cleanvalidation)
 
-postResample(Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
+Building_RF_Sample <- postResample(Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
 ##Accuracy 0.98, Kappa 0.97 
 
 confusionMatrix(data = Predicted_BuildingRF3, cleanvalidation$BUILDINGID)
 
+##MODEL 7 BUILDING - Train SVMLinear SAMPLE CLEANTRAINSET3 ----
+SVMLinearfit3 <- train(BUILDINGID~. -LONGITUDE-LATITUDE-FLOOR-SPACEID
+                       -RELATIVEPOSITION-USERID-PHONEID-TIMESTAMP,
+                      data = training3, method = "svmLinear", 
+                       tuneLength = 15, trControl = fitcontrol)
+
+SVMLinearfit3
+
+Predicted_BuildingSVMLinear3SAMPLE <- predict(SVMLinearfit3, cleanvalidation)
+
+Building_SVMLinear_Sample <- postResample(Predicted_BuildingSVMLinear3SAMPLE, cleanvalidation$BUILDINGID)
+##Accuracy 0.99, Kappa 0.99 
+
+#Plot confusion matrix SVMLinear2
+confusionMatrix(data = Predicted_BuildingSVMLinear2, cleanvalidation$BUILDINGID)
+
+
+
+#Metrics BUILDING sample ----
+Metrics_Building_Sample <- rbind(Building_SVMLinear_Sample,Building_RF_Sample,Building_KNN_Sample)
+Metrics_Building_Sample <- format(Metrics_Building_Sample, digits = 4, format = "f")
+grid.newpage()
+grid.table(Metrics_Building_Sample,theme=ttheme_default())
+
+#Metrics BUILDING ----
+Metrics_Building <- rbind(Building_SVMLinear,Building_RF)
+Metrics_Building <- format(Metrics_Building, digits = 3, format = "f")
+grid.newpage()
+grid.table(Metrics_Building,theme=ttheme_default())
 ###MODELLING FLOOR ----
 ###New VALIDATION set with predicted BUILDING ----
 validationBUILDING <- cleanvalidation
@@ -544,35 +591,22 @@ B2_validation_Exp$FLOOR <- factor(B2_validation_Exp$FLOOR)
 ##MODELS ----
 #MODEL 1 B0 FLOOR Floor_B0_SVM2----
 ##Train SVMLinear Floor 
-#SVMLinearFloor2_B0 <- train(y=B0_train2$FLOOR,x=B0_train2[,c(1:139)],
+#SVMLinearFloor2_B0boxcox <- train(y=B0_train2$FLOOR,x=B0_train2[,c(1:139)],
 #                     data = B0_train2, method = "svmLinear",
 #                     tuneLength = 15, trControl = fitcontrol)
 
 SVMLinearFloor2_B0 <- readRDS("SVMLinearFloor2_B0.rds")
+SVMLinearFloor2_B0
 
 #Apply SVMLinear1 Floor to test set
 Predicted_FloorSVMLinear2_B0 <- predict(SVMLinearFloor2_B0, B0_validation[,1:139])
 
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
-Floor_B0_SVM2 <- postResample(Predicted_FloorSVMLinear2_B0, B0_validation$FLOOR)
+Floor_B0_SVM <- postResample(Predicted_FloorSVMLinear2_B0, B0_validation$FLOOR)
 ##Accuracy 0.9310, Kappa 0.9026 
 
 #Plot confusion matrix SVMLinear2
 cf1 <- confusionMatrix(data = Predicted_FloorSVMLinear2_B0, B0_validation$FLOOR)
-
-ggplotConfusionMatrix <- function(m){
-  mytitle <- paste("Accuracy", round(as.numeric(m$overall[1]),2),
-                   "Kappa", round(as.numeric(m$overall[2]),2))
-  p <- ggplot(data = as.data.frame(m$table) ,
-    aes(x = Reference, y = Prediction)) +
-    geom_tile(aes(fill = log(Freq)), colour = "white") +
-    scale_fill_gradient(low="white",high = "steelblue",na.value = "white") +
-    geom_text(aes(x = Reference, y = Prediction, label = Freq)) +
-    ggtitle(mytitle) +
-    theme(legend.position = "none") 
-  return(p)
-}
-
 ggplotConfusionMatrix(cf1)
 
 #MODEL 2 B0 FLOOR Floor_B0_SVM2Exp ----
@@ -601,21 +635,25 @@ RFFloor2_B0 <- readRDS("RFFloor2_B0.rds")
 
 Predicted_RFFloor2_B0 <- predict(RFFloor2_B0, B0_validation)
 
-Floor_B0_RF2 <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
+Floor_B0_RF <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
 ##Accuracy 0.93, Kappa 0.91 
 
 #Plot confusion matrix SVMLinear2
-cm2 <- confusionMatrix(data = Predicted_RFFloor2_B0, B0_validation$FLOOR)
+cfm3 <- confusionMatrix(data = Predicted_RFFloor2_B0, B0_validation$FLOOR)
+ggplotConfusionMatrix(cfm3)
 
 #Metrics B0 Floor
-Metrics_Floor_B0 <- rbind(Floor_B0_SVM2,Floor_B0_RF2)
-Metrics_Floor_B0 <- format(Metrics_Floor_B0, digits = 2, format = "f")
+Metrics_Floor_B0 <- rbind(Floor_B0_SVM,Floor_B0_RF)
+Metrics_Floor_B0 <- format(Metrics_Floor_B0, digits = 3, format = "f")
 grid.newpage()
 grid.table(Metrics_Floor_B0,theme=ttheme_default())
 
-#MODEL 4 B0 FLOOR Floor_B0_KNN2 ----
+#MODEL 4 B0 FLOOR Floor_B0_KNN2 SAMPLE----
+inTrainingB0<- createDataPartition(B0_train3$BUILDINGID, times = 1, p = .1)
+trainingB0 <- B0_train3[inTrainingB0$Resample1,]
+
 KNNFloor2_B0 <- train(y=B0_train3$FLOOR,x=B0_train3[,c(1:139)],
-                     data = B0_train2, method = "knn",
+                     data = trainingB0, method = "knn",
                      preProcess = c("center","scale"),
                      tuneLength = 15)
 
@@ -629,8 +667,50 @@ Floor_B0_RF2 <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
 #Plot confusion matrix 
 cm2 <- confusionMatrix(data = Predicted_KNNFloor2_B0, B0_validation$FLOOR)
 
+#MODEL 5 B0 FLOOR Floor_B0_SVM3----
+##Train SVMLinear Floor 
+SVMLinearFloor3_B0 <- train(y=B0_train3$FLOOR,x=B0_train3[,c(1:139)],
+                     data = B0_train3, method = "svmLinear",
+                     tuneLength = 15, trControl = fitcontrol)
+
+SVMLinearFloor3_B0 <- readRDS("SVMLinearFloor2_B0.rds")
+SVMLinearFloor3_B0
+
+#Apply SVMLinear1 Floor to test set
+Predicted_FloorSVMLinear3_B0 <- predict(SVMLinearFloor3_B0, B0_validation[,1:139])
+
+#postResample SVMLinear1 Floor to assess the metrics of the predictions
+Floor_B0_SVM3 <- postResample(Predicted_FloorSVMLinear3_B0, B0_validation$FLOOR)
+##Accuracy 0.9310, Kappa 0.9026 
+
+#Plot confusion matrix SVMLinear2
+cfm2 <- confusionMatrix(data = Predicted_FloorSVMLinear2_B0, B0_validation$FLOOR)
+
+ggplotConfusionMatrix(cfm2)
+
+#MODEL 6 B0 FLOOR Floor_B0_RF3 ----
+#RFFloor2_B0 <- train(y=B0_train3$FLOOR,x=B0_train3[,c(1:139)],
+#                     data = B0_train2, method = "rf",ntree=5,
+#                     tuneLength = 15)
+
+RFFloor2_B0 <- readRDS("RFFloor2_B0.rds")
+
+Predicted_RFFloor2_B0 <- predict(RFFloor2_B0, B0_validation)
+
+Floor_B0_RF2 <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
+##Accuracy 0.93, Kappa 0.91 
+
+#Plot confusion matrix SVMLinear2
+cm2 <- confusionMatrix(data = Predicted_RFFloor2_B0, B0_validation$FLOOR)
+
+#Metrics B0 Floor
+Metrics_Floor_B0 <- rbind(Floor_B0_SVM2,Floor_B0_RF2)
+Metrics_Floor_B0 <- format(Metrics_Floor_B0, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Floor_B0,theme=ttheme_default())
+
 #Metrics B0 Floor ----
-Metrics_Floor_B0 <- rbind(Floor_B0_SVM2,Floor_B0_RF2,Floor_B0_KNN2)
+Metrics_Floor_B0 <- rbind(Floor_B0_SVM2,Floor_B0_RF2)
 Metrics_Floor_B0 <- format(Metrics_Floor_B0, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Floor_B0,theme=ttheme_default())
@@ -646,27 +726,25 @@ SVMLinearFloor2_B1
 Predicted_FloorSVMLinear2_B1 <- predict(SVMLinearFloor2_B1, B1_validation[,1:139])
 
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
-Floor_B0_SVM2 <- postResample(Predicted_FloorSVMLinear2_B1, B1_validation$FLOOR)
+Floor_B1_SVM <- postResample(Predicted_FloorSVMLinear2_B1, B1_validation$FLOOR)
 ##Accuracy 0.7883, Kappa 0.6888 
 
 #Plot confusion matrix SVMLinear2
-cm <- confusionMatrix(data = Predicted_FloorSVMLinear2_B1, B1_validation$FLOOR)
-plot(cm$table)
-cm$byClass
-
+cfm4 <- confusionMatrix(data = Predicted_FloorSVMLinear2_B1, B1_validation$FLOOR)
+ggplotConfusionMatrix(cfm4)
 
 #MODEL 2 B1 FLOOR Floor_B0_SVM2Exp----
-SVMLinearFloor2Exp_B1 <- train(y=B1_train2Exp$FLOOR,x=B1_train2Exp[,c(1:139)],
-                               data = B1_train2Exp, method = "svmLinear",
+SVMLinearFloor3_B1 <- train(y=B1_train3$FLOOR,x=B1_train3[,c(1:139)],
+                               data = B1_train3, method = "svmLinear",
                                tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearFloor2Exp_B1
+SVMLinearFloor3_B1
 
 #Apply SVMLinear1 Floor to test set
-Predicted_FloorSVMLinear2Exp_B1 <- predict(SVMLinearFloor2Exp_B1, B1_validation[,1:139])
+Predicted_FloorSVMLinear3_B1 <- predict(SVMLinearFloor3_B1, B1_validation[,1:139])
 
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
-Floor_B0_SVM2Exp <- postResample(Predicted_FloorSVMLinear2Exp_B1, B1_validation$FLOOR)
+Floor_B0_SVM3 <- postResample(Predicted_FloorSVMLinear3_B1, B1_validation$FLOOR)
 ##Accuracy , Kappa  
 
 #Plot confusion matrix SVMLinear2
@@ -684,14 +762,15 @@ RFFloor2_B1
 Predicted_RFFloor2_B1 <- predict(RFFloor2_B1, B1_validation)
 
 #postResample to assess the metrics of the predictions
-Floor_B1_RF2 <- postResample(Predicted_RFFloor2_B1, B1_validation$FLOOR)
+Floor_B1_RF <- postResample(Predicted_RFFloor2_B1, B1_validation$FLOOR)
 ##Accuracy 0.7752, Kappa 0.6787 
 
 #Plot confusion matrix SVMLinear2
-confusionMatrix(data = Predicted_RFFloor2_B1, B1_validation$FLOOR)
+cfm5 <- confusionMatrix(data = Predicted_RFFloor2_B1, B1_validation$FLOOR)
+ggplotConfusionMatrix(cfm5)
 
 #Metrics B1 Floor ----
-Metrics_Floor_B1 <- rbind(Floor_B1_SVM2,Floor_B1_RF2,Floor_B1_KNN2)
+Metrics_Floor_B1 <- rbind(Floor_B1_SVM,Floor_B1_RF)
 Metrics_Floor_B1 <- format(Metrics_Floor_B1, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Floor_B1,theme=ttheme_default())
@@ -704,28 +783,33 @@ SVMLinearFloor2_B2
 
 Predicted_FloorSVMLinear2_B2 <- predict(SVMLinearFloor2_B2, B2_validation[,1:106])
 
-postResample(Predicted_FloorSVMLinear2_B2, B2_validation$FLOOR)
+Floor_B2_SVM <- postResample(Predicted_FloorSVMLinear2_B2, B2_validation$FLOOR)
 ##Accuracy 0.9216, Kappa 0.8929 
 
 #Plot confusion matrix SVMLinear2
-confusionMatrix(data = Predicted_FloorSVMLinear2_B2, B2_validation$FLOOR)
+cfm7 <- confusionMatrix(data = Predicted_FloorSVMLinear2_B2, B2_validation$FLOOR)
+ggplotConfusionMatrix(cfm7)
 
-#MODEL 2 B2 FLOOR Floor_B2_SVM2Exp ----
-SVMLinearFloor2Exp_B2 <- train(y=B2_train2Exp$FLOOR,x=B2_train2Exp[,1:114],
-                               data = B2_train2Exp, method = "svmLinear",
+
+
+#MODEL 2 B2 FLOOR Floor_B2_SVM3 ----
+SVMLinearFloor3_B2 <- train(y=B2_train3$FLOOR,x=B2_train3[,1:106],
+                               data = B2_train3, method = "svmLinear",
                                tuneLength = 15, trControl = fitcontrol)
 
-SVMLinearFloor2Exp_B2
+SVMLinearFloor3_B2
 
 #Apply SVMLinear1 Floor to test set
-Predicted_FloorSVMLinear2Exp_B2 <- predict(SVMLinearFloor2Exp_B2, B2_validation[,1:106])
+Predicted_FloorSVMLinear3_B2 <- predict(SVMLinearFloor3_B2, B2_validation[,1:106])
 
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
-postResample(Predicted_FloorSVMLinear2Exp_B2, B2_validation$FLOOR)
-##Accuracy , Kappa  
+postResample(Predicted_FloorSVMLinear3_B2, B2_validation$FLOOR)
+##Accuracy 0.9253, Kappa 0.89  
 
 #Plot confusion matrix SVMLinear2
-confusionMatrix(data = Predicted_FloorSVMLinear2Exp_B2, B2_validation$FLOOR)
+cfm8 <- confusionMatrix(data = Predicted_FloorSVMLinear3_B2, B2_validation$FLOOR)
+ggplotConfusionMatrix(cfm8)
+
 
 #MODEL 3 B2 FLOOR Floor_B2_RF2 ----
 
@@ -739,16 +823,21 @@ RFFloor2_B2
 Predicted_RFFloor2_B2 <- predict(RFFloor2_B2, B2_validation[,c(1:106)])
 
 #postResample to assess the metrics of the predictions
-postResample(Predicted_RFFloor2_B2, B2_validation$FLOOR)
-##Accuracy 0.8582, Kappa 0.8064
+Floor_B2_RF <- postResample(Predicted_RFFloor2_B2, B2_validation$FLOOR)
+##Accuracy 0.8731, Kappa 0.8271
 
 #Plot confusion matrix SVMLinear2
-confusionMatrix(data = Predicted_RFFloor2_B2, B2_validation$FLOOR)
+cfm6 <- confusionMatrix(data = Predicted_RFFloor2_B2, B2_validation$FLOOR)
+
+ggplotConfusionMatrix(cfm6)
 
 
 
-
-
+#Metrics B2 Floor ----
+Metrics_Floor_B2 <- rbind(Floor_B2_SVM,Floor_B2_RF)
+Metrics_Floor_B2 <- format(Metrics_Floor_B2, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Floor_B2,theme=ttheme_default())
 #Error analysis ----
 checkVal_B1F2 <- B1_validation3
 checkVal_B1F2$PredFloor <- Predicted_FloorRF2_B1
@@ -826,57 +915,54 @@ summary(cleantrainset3$LATITUDE)#varies from 4864746 to 4865017 (271 "variance")
 
 #LATITUDE ----
 #MODEL1 B0 Latitude Lat_B0_RF2 ----
-RFlatitude2_B0 <- train(y=B0_train2$LATITUDE,x=B0_train2[,c(1:139)],
-                            data = B0_train2, method = "rf",ntree=5,
-                            tuneLength = 15, trControl = fitcontrol)
+#RFlatitude2_B0 <- train(y=B0_train2$LATITUDE,x=B0_train2[,c(1:139)],
+#                            data = B0_train2, method = "rf",ntree=5,
+#                            tuneLength = 15, trControl = fitcontrol)
 
-RFlatitude2_B0
+RFlatitude2_B0 <- readRDS("RFlatitude2_B0.rds")
 
 Predicted_RFlatitude2_B0 <- predict(RFlatitude2_B0, B0_validation[,1:139])
 
-Lat_B0_RF2 <- postResample(Predicted_RFlatitude2_B0, B0_validation$LATITUDE)
-#model1 RF2 ##RMSE 6.99, Rsquared 0.95, MAE 4.71  
+Lat_B0_RF <- postResample(Predicted_RFlatitude2_B0, B0_validation$LATITUDE)
+##RMSE 6.91, Rsquared 0.95, MAE 4.81  
 
 #Error analysis
 ErroLatitude_RF2_B0 <-  Predicted_RFlatitude2_B0 - B0_validation$LATITUDE
 hist(ErroLatitude_RF2_B0)
 
 #MODEL2 B0 Latitude Lat_B0_RF2Exp ----
-RFlatitude2Exp_B0 <- train(y=B0_train2Exp$LATITUDE,x=B0_train2Exp[,c(1:139)],
-                        data = B0_train2Exp, method = "rf",ntree=5,
-                        preProcess = c("BoxCox","center","scale"),
-                        tuneLength = 15, trControl = fitcontrol)
+#RFlatitude2Exp_B0 <- train(y=B0_train2Exp$LATITUDE,x=B0_train2Exp[,c(1:139)],
+#                        data = B0_train2Exp, method = "rf",ntree=5,
+#                        preProcess = c("BoxCox","center","scale"),
+#                        tuneLength = 15, trControl = fitcontrol)
 
-RFlatitude2Exp_B0
+RFlatitude2Exp_B0 <- readRDS("RFlatitude2Exp_B0.rds")
 
 Predicted_RFlatitude2Exp_B0 <- predict(RFlatitude2Exp_B0, B0_validation_Exp[,1:139])
 
 Lat_B0_RF2Exp <- postResample(Predicted_RFlatitude2Exp_B0, B0_validation_Exp$LATITUDE)
-#model2 RF2Exp ##RMSE 6.52, Rsquared 0.95, MAE 4.5    
-#model1 RF2    ##RMSE 6.99, Rsquared 0.95, MAE 4.71  
+##RMSE 7.35, Rsquared 0.95, MAE 4.82    
 
 #Error analysis
 ErroLatitude_RF2Exp_B0 <-  Predicted_RFlatitude2Exp_B0 - B0_validation_Exp$LATITUDE
 hist(ErroLatitude_RF2Exp_B0)
 
 #MODEL3 B0 Latitude Lat_B0_RF3 ----
-RFlatitude3_B0 <- train(y=B0_train3$LATITUDE,x=B0_train3[,c(1:139)],
-                        data = B0_train3, method = "rf",ntree=5,
-                        tuneLength = 15, trControl = fitcontrol)
+#RFlatitude3_B0 <- train(y=B0_train3$LATITUDE,x=B0_train3[,c(1:139)],
+#                        data = B0_train3, method = "rf",ntree=5,
+#                        tuneLength = 15, trControl = fitcontrol)
 
-RFlatitude3_B0
+#RFlatitude3_B0
 
-Predicted_RFlatitude3_B0 <- predict(RFlatitude3_B0, B0_validation[,1:139])
+#Predicted_RFlatitude3_B0 <- predict(RFlatitude3_B0, B0_validation[,1:139])
 
-Lat_B0_RF3 <- postResample(Predicted_RFlatitude3_B0, B0_validation$LATITUDE)
+#Lat_B0_RF3 <- postResample(Predicted_RFlatitude3_B0, B0_validation$LATITUDE)
 #model3 ##RMSE 6.44, Rsquared 0.95, MAE 4.56  
-#model2 ##RMSE 21.77, Rsquared 0.54, MAE 14.9    
-#model1 ##RMSE 6.99, Rsquared 0.95, MAE 4.71  
 
 
 #Error analysis
-ErroLatitude_RF3_B0 <-  Predicted_RFlatitude3_B0 - B0_validation$LATITUDE
-hist(ErroLatitude_RF3_B0)
+#ErroLatitude_RF3_B0 <-  Predicted_RFlatitude3_B0 - B0_validation$LATITUDE
+#hist(ErroLatitude_RF3_B0)
 
 #MODEL4 B0 Latitude Lat_B0_RF3Exp ----
 RFlatitude3Exp_B0 <- train(y=B0_train3Exp$LATITUDE,x=B0_train3Exp[,c(1:139)],
@@ -898,20 +984,17 @@ ErroLatitude_RF3Exp_B0 <-  Predicted_RFlatitude3Exp_B0 - B0_validation_Exp$LATIT
 hist(ErroLatitude_RF3Exp_B0)
 
 #MODEL5 B0 Latitude Lat_B0_SVM3 ----
-SVMlatitude3_B0 <- train(y=B0_train3$LATITUDE,x=B0_train3[,c(1:139)],
-                        data = B0_train3, method = "svmLinear",
-                        preProcess = c("center","scale"),
-                        tuneLength = 15, trControl = fitcontrol)
+#SVMlatitude3_B0 <- train(y=B0_train3$LATITUDE,x=B0_train3[,c(1:139)],
+#                        data = B0_train3, method = "svmLinear",
+#                        preProcess = c("center","scale"),
+#                        tuneLength = 15, trControl = fitcontrol)
 
-SVMlatitude3_B0
+SVMlatitude3_B0 <- readRDS("SVMlatitude3_B0.rds")
 
 Predicted_SVMlatitude3_B0 <- predict(SVMlatitude3_B0, B0_validation[,1:139])
 
-Lat_B0_SVM3 <- postResample(Predicted_SVMlatitude3_B0, B0_validation$LATITUDE)
+Lat_B0_SVM <- postResample(Predicted_SVMlatitude3_B0, B0_validation$LATITUDE)
 #model5 ##RMSE 14.91, Rsquared 0.81, MAE 10.29   
-#model3 ##RMSE 6.44, Rsquared 0.95, MAE 4.56  
-#model2 ##RMSE 21.77, Rsquared 0.54, MAE 14.9    
-#model1 ##RMSE 6.99, Rsquared 0.95, MAE 4.71  
 
 #Error analysis
 ErroLatitude_SVM3_B0 <-  Predicted_SVMlatitude3_B0 - B0_validation$LATITUDE
@@ -934,45 +1017,41 @@ Lat_B0_SVM3Exp <- postResample(Predicted_SVMlatitude3Exp_B0, B0_validation$LATIT
 ErroLatitude_SVM3_B0 <-  Predicted_SVMlatitude3_B0 - B0_validation$LATITUDE
 hist(ErroLatitude_SVM3_B0)
 #MODEL7 B0 Latitude Lat_B0_KNN3 ----
-KNNlatitude3_B0 <- train(y=B0_train3$LATITUDE,x=B0_train3[,c(1:139)],
-                         data = B0_train3, method = "knn",
-                         preprocess=c("center","scale"),
-                         tuneLength = 15, trControl = fitcontrol)
+#KNNlatitude3_B0 <- train(y=B0_train3$LATITUDE,x=B0_train3[,c(1:139)],
+#                         data = B0_train3, method = "knn",
+#                         preprocess=c("center","scale"),
+#                         tuneLength = 15, trControl = fitcontrol)
 
-KNNlatitude3Exp_B0
+KNNlatitude3_B0 <- readRDS("KNNlatitude3_B0.rds")
 
-Predicted_KNNlatitude3Exp_B0 <- predict(KNNlatitude3Exp_B0, B0_validation[,1:139])
+KNNlatitude3_B0
 
-Lat_B0_KNN3Exp <- postResample(Predicted_KNNlatitude3Exp_B0, B0_validation$LATITUDE)
-#model6 ##RMSE , Rsquared 0., MAE    
+Predicted_KNNlatitude3_B0 <- predict(KNNlatitude3_B0, B0_validation[,1:139])
+
+Lat_B0_KNN <- postResample(Predicted_KNNlatitude3_B0, B0_validation$LATITUDE)
+#model6 ##RMSE 4.89 , Rsquared 0.97, MAE 3.19    
 
 #Error analysis
 ErroLatitude_KNN3_B0 <-  Predicted_KNNlatitude3_B0 - B0_validation$LATITUDE
 hist(ErroLatitude_KNN3_B0)
 
 #Metrics B0 Latitute ----
-Metrics_Lat_B0 <- rbind(Lat_B0_RF2,Lat_B0_RF3,Lat_B0_SVM3)
+Metrics_Lat_B0 <- rbind(Lat_B0_KNN,Lat_B0_RF,Lat_B0_SVM)
 Metrics_Lat_B0 <- format(Metrics_Lat_B0, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Lat_B0,theme=ttheme_default())
 
-
-Metrics_Lat_B0Exp <- rbind(Lat_B0_RF2Exp,Lat_B0_RF3Exp)
-Metrics_Lat_B0Exp <- format(Metrics_Lat_B0, digits = 2, format = "f")
-grid.newpage()
-grid.table(Metrics_Lat_B0Exp,theme=ttheme_default())
-
 #MODEL1 B1 Latitude Lat_B1_RF2 ----
-RFlatitude2_B1 <- train(y=B1_train2$LATITUDE,x=B1_train2[,c(1:146)],
-                        data = B1_train2, method = "rf",ntree=5,
-                        tuneLength = 15, trControl = fitcontrol)
+#RFlatitude2_B1 <- train(y=B1_train2$LATITUDE,x=B1_train2[,c(1:146)],
+#                        data = B1_train2, method = "rf",ntree=5,
+#                        tuneLength = 15, trControl = fitcontrol)
 
-RFlatitude2_B1
+RFlatitude2_B1 <- readRDS("RFlatitude2_B1.rds")
 
 Predicted_RFlatitude2_B1 <- predict(RFlatitude2_B1, B1_validation[,1:146])
 
-Lat_B1_RF2 <- postResample(Predicted_RFlatitude2_B1, B1_validation$LATITUDE)
-##RMSE 11.75, Rsquared 0.89, MAE 8.09   
+Lat_B1_RF <- postResample(Predicted_RFlatitude2_B1, B1_validation$LATITUDE)
+##RMSE 11.43, Rsquared 0.89, MAE 7.94   
 
 #Error analysis
 ErroLatitude_RF2_B1 <-  Predicted_RFlatitude2_B1 - B1_validation$LATITUDE
@@ -1016,35 +1095,51 @@ SVMlatitude3_B1 <- train(y=B1_train3$LATITUDE,x=B1_train3[,c(1:146)],
                          preprocess = c("center","scale"),
                          tuneLength = 15, trControl = fitcontrol)
 
-SVMlatitude3_B1
+SVMlatitude3_B1 <- readRDS("SVMlatitude3_B1.rds")
 
 Predicted_SVMlatitude3_B1 <- predict(SVMlatitude3_B1, B1_validation[,1:146])
 
-Lat_B1_SVM3 <- postResample(Predicted_SVMlatitude3_B1, B1_validation$LATITUDE)
+Lat_B1_SVM <- postResample(Predicted_SVMlatitude3_B1, B1_validation$LATITUDE)
 #model4 ##RMSE 16.18, Rsquared 0.80, MAE 11.92   
-###model3 ##RMSE 12.8, Rsquared 0.87, MAE 8.61  
-###model1 ##RMSE 11.97, Rsquared 0.88, MAE 8.54 
+
 #Error analysis
 ErroLatitude_SVM3_B1 <-  Predicted_SVMlatitude3_B1 - B1_validation$LATITUDE
 hist(ErroLatitude_SVM3_B1)
+#MODEL5 B1 Latitude Lat_B1_KNN3 ----
+#KNNlatitude3_B1 <- train(y=B1_train3$LATITUDE,x=B1_train3[,c(1:146)],
+#                         data = B1_train3, method = "knn",
+#                         preprocess=c("center","scale"),
+#                         tuneLength = 15, trControl = fitcontrol)
+
+KNNlatitude3_B1 <- readRDS("KNNlatitude3_B1.rds")
+
+KNNlatitude3_B1
+
+Predicted_KNNlatitude3_B1 <- predict(KNNlatitude3_B1, B1_validation[,1:146])
+
+Lat_B1_KNN <- postResample(Predicted_KNNlatitude3_B1, B1_validation$LATITUDE)
+##RMSE 11.2, Rsquared 0.899, MAE 6.68     
+
+#Error analysis
+ErroLatitude_KNN3_B1 <-  Predicted_KNNlatitude3_B1 - B1_validation$LATITUDE
+hist(ErroLatitude_KNN3_B1)
 #Metrics B1 Latitute ----
-Metrics_Lat_B1 <- rbind(Lat_B1_RF2,Lat_B1_RF2Exp,Lat_B1_RF3,
-                        Lat_B1_SVM3)
+Metrics_Lat_B1 <- rbind(Lat_B1_KNN,Lat_B1_RF,Lat_B1_SVM)
 Metrics_Lat_B1 <- format(Metrics_Lat_B1, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Lat_B1,theme=ttheme_default())
 
 #MODEL1 B2 Latitude Lat_B2_RF2 ----
-RFlatitude2_B2 <- train(y=B2_train2$LATITUDE,x=B2_train2[,c(1:106)],
-                        data = B2_train2, method = "rf",ntree=5,
-                        tuneLength = 15, trControl = fitcontrol)
+#RFlatitude2_B2 <- train(y=B2_train2$LATITUDE,x=B2_train2[,c(1:106)],
+#                        data = B2_train2, method = "rf",ntree=5,
+#                        tuneLength = 15, trControl = fitcontrol)
 
-RFlatitude2_B2
+RFlatitude2_B2 <- readRDS("RFlatitude2_B2.rds") 
 
 Predicted_RFlatitude2_B2 <- predict(RFlatitude2_B2, B2_validation[,1:106])
 
-Lat_B2_RF2 <- postResample(Predicted_RFlatitude2_B2, B2_validation$LATITUDE)
-##RMSE 10.38, Rsquared 0.87, MAE 7.02    
+Lat_B2_RF <- postResample(Predicted_RFlatitude2_B2, B2_validation$LATITUDE)
+##RMSE 10.82, Rsquared 0.85, MAE 7.08    
 
 #Error analysis
 ErroLatitude_RF2_B2 <-  Predicted_RFlatitude2_B2 - B2_validation$LATITUDE
@@ -1083,16 +1178,16 @@ ErroLatitude_RF3_B2 <-  Predicted_RFlatitude3_B2 - B2_validation$LATITUDE
 hist(ErroLatitude_RF3_B2)
 
 #MODEL4 B2 Latitude Lat_B2_SVM3 ----
-SVMlatitude3_B2 <- train(y=B2_train3$LATITUDE,x=B2_train3[,c(1:106)],
-                         data = B2_train3, method = "svmLinear",
-                         preprocess = c("center","scale"),
-                         tuneLength = 15, trControl = fitcontrol)
+#SVMlatitude3_B2 <- train(y=B2_train3$LATITUDE,x=B2_train3[,c(1:106)],
+#                         data = B2_train3, method = "svmLinear",
+#                         preprocess = c("center","scale"),
+#                         tuneLength = 15, trControl = fitcontrol)
 
-SVMlatitude3_B2
+SVMlatitude3_B2 <- readRDS("SVMlatitude3_B2.rds")
 
 Predicted_SVMlatitude3_B2 <- predict(SVMlatitude3_B2, B2_validation[,1:106])
 
-Lat_B2_SVM3 <- postResample(Predicted_SVMlatitude3_B2, B2_validation$LATITUDE)
+Lat_B2_SVM <- postResample(Predicted_SVMlatitude3_B2, B2_validation$LATITUDE)
 ##RMSE 15.53, Rsquared 0.74, MAE 11.53    
 
 #Error analysis
@@ -1116,9 +1211,27 @@ Lat_B2_RF3Exp <- postResample(Predicted_RFlatitude3Exp_B2, B2_validation_Exp$LAT
 ErroLatitude_RF3Exp_B2 <-  Predicted_RFlatitude3Exp_B2 - B2_validation_Exp$LATITUDE
 hist(ErroLatitude_RF3Exp_B2)
 
+#MODEL6 B2 Latitude Lat_B2_KNN3 ----
+#KNNlatitude3_B2 <- train(y=B2_train3$LATITUDE,x=B2_train3[,c(1:106)],
+#                         data = B2_train3, method = "knn",
+#                         preprocess=c("center","scale"),
+#                         tuneLength = 15, trControl = fitcontrol)
+
+
+KNNlatitude3_B2 <- readRDS("KNNlatitude3_B2.rds")
+
+KNNlatitude3_B2
+
+Predicted_KNNlatitude3_B2 <- predict(KNNlatitude3_B2, B2_validation[,1:106])
+
+Lat_B2_KNN <- postResample(Predicted_KNNlatitude3_B2, B2_validation$LATITUDE)
+##RMSE 9.5, Rsquared 0.89, MAE 5.92     
+
+#Error analysis
+ErroLatitude_KNN3_B1 <-  Predicted_KNNlatitude3_B1 - B1_validation$LATITUDE
+hist(ErroLatitude_KNN3_B1)
 #Metrics B2 Latitute ----
-Metrics_Lat_B2 <- rbind(Lat_B2_RF2,Lat_B2_RF2Exp,Lat_B2_RF3,
-                        Lat_B2_SVM3,Lat_B2_RF3Exp)
+Metrics_Lat_B2 <- rbind(Lat_B2_KNN,Lat_B2_RF,Lat_B2_SVM)
 Metrics_Lat_B2 <- format(Metrics_Lat_B2, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Lat_B2,theme=ttheme_default())
@@ -1140,39 +1253,169 @@ Long_B0_RF2 <- postResample(Predicted_RFlongitude2_B0, B0_validation$LONGITUDE)
 ErroLongitude_RF2_B0 <-  Predicted_RFlongitude2_B0 - B0_validation$LONGITUDE
 hist(ErroLongitude_RF2_B0)
 
-#MODEL1 B1 Longitude Long_B1_RF2 ----
-RFlongitude2_B1 <- train(y=B1_train2$LONGITUDE,x=B1_train2[,c(1:146)],
-                        data = B1_train2, method = "rf",ntree=5,
-                        tuneLength = 15, trControl = fitcontrol)
+#MODEL2 B0 Longitude Long_B0_KNN3 ----
+KNNlongitude3_B0 <- train(y=B0_train3$LONGITUDE,x=B0_train3[,c(1:139)],
+                         data = B0_train3, method = "knn",
+                         preprocess=c("center","scale"),
+                         tuneLength = 15, trControl = fitcontrol)
 
-RFlongitude2_B1
+
+KNNlongitude3_B0 <- readRDS("KNNlongitude3_B0.rds")
+
+KNNlongitude3_B0
+
+Predicted_KNNlongitude3_B0 <- predict(KNNlongitude3_B0, B0_validation[,1:139])
+
+Long_B0_KNN <- postResample(Predicted_KNNlongitude3_B0, B0_validation$LONGITUDE)
+##RMSE 5.9, Rsquared 0.95, MAE 3.66     
+
+#Error analysis
+ErroLongitude_KNN3_B0 <-  Predicted_KNNlongitude3_B0 - B0_validation$LONGITUDE
+hist(ErroLongitude_KNN3_B0)
+#MODEL3 B0 Longitude Long_B0_SVM3 ----
+#SVMlongitude3_B0 <- train(y=B0_train3$LONGITUDE,x=B0_train3[,c(1:139)],
+#                          data = B0_train3, method = "svmLinear",
+#                          preProcess = c("center","scale"),
+#                          tuneLength = 15, trControl = fitcontrol)
+
+SVMlongitude3_B0 <- readRDS("SVMlongitude3_B0.rds")
+
+SVMlongitude3_B0
+
+Predicted_SVMlongitude3_B0 <- predict(SVMlongitude3_B0, B0_validation[,1:139])
+
+Long_B0_SVM <- postResample(Predicted_SVMlongitude3_B0, B0_validation$LONGITUDE)
+##RMSE 11.48, Rsquared 0.81, MAE 8.38     
+
+#Error analysis
+ErroLongitude_SVM3_B0 <-  Predicted_SVMlongitude3_B0 - B0_validation$LONGITUDE
+hist(ErroLongitude_SVM3_B0)
+
+#Metrics B0 Longitute ----
+Metrics_Long_B0 <- rbind(Long_B0_KNN,Long_B0_RF,Long_B0_SVM)
+Metrics_Long_B0 <- format(Metrics_Long_B0, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Long_B0,theme=ttheme_default())
+
+#MODEL1 B1 Longitude Long_B1_RF2 ----
+#RFlongitude2_B1 <- train(y=B1_train2$LONGITUDE,x=B1_train2[,c(1:146)],
+#                        data = B1_train2, method = "rf",ntree=5,
+#                        tuneLength = 15, trControl = fitcontrol)
+
+RFlongitude2_B1 <- readRDS("RFlongitude2_B1.rds")
 
 Predicted_RFlongitude2_B1 <- predict(RFlongitude2_B1, B1_validation[,1:146])
 
-Long_B1_RF2 <- postResample(Predicted_RFlongitude2_B1, B1_validation$LONGITUDE)
-##RMSE 10.08, Rsquared 0.95, MAE 7.34   
+Long_B1_RF <- postResample(Predicted_RFlongitude2_B1, B1_validation$LONGITUDE)
+##RMSE 11.29, Rsquared 0.94, MAE 7.70   
 
 #Error analysis
 ErroLongitude_RF2_B1 <-  Predicted_RFlongitude2_B1 - B1_validation$LONGITUDE
 hist(ErroLongitude_RF2_B1)
+#MODEL2 B1 Longitude Long_B1_KNN3 ----
+#KNNlongitude3_B1 <- train(y=B1_train3$LONGITUDE,x=B1_train3[,c(1:146)],
+#                          data = B1_train3, method = "knn",
+#                          preprocess=c("center","scale"),
+#                          tuneLength = 15, trControl = fitcontrol)
 
-#MODEL1 B2 Longitude ----
-RFlongitude2_B2 <- train(y=B2_train2$LONGITUDE,x=B2_train2[,c(1:106)],
-                        data = B2_train2, method = "rf",ntree=5,
-                        tuneLength = 15, trControl = fitcontrol)
+KNNlongitude3_B1 <- readRDS("KNNlongitude3_B1.rds")
 
-RFlongitude2_B2
+KNNlongitude3_B1
+
+Predicted_KNNlongitude3_B1 <- predict(KNNlongitude3_B1, B1_validation[,1:146])
+
+Long_B1_KNN <- postResample(Predicted_KNNlongitude3_B1, B1_validation$LONGITUDE)
+##RMSE 9.9, Rsquared 0.95, MAE 6.42     
+
+#Error analysis
+ErroLongitude_KNN3_B1 <-  Predicted_KNNlongitude3_B1 - B1_validation$LONGITUDE
+hist(ErroLongitude_KNN3_B1)
+
+#MODEL3 B1 Longitude Long_B0_SVM3 ----
+#SVMlongitude3_B1 <- train(y=B1_train3$LONGITUDE,x=B1_train3[,c(1:146)],
+#                          data = B1_train3, method = "svmLinear",
+#                          preProcess = c("center","scale"),
+#                          tuneLength = 15, trControl = fitcontrol)
+
+SVMlongitude3_B1 <- readRDS("SVMlongitude3_B1.rds")
+
+SVMlongitude3_B1
+
+Predicted_SVMlongitude3_B1 <- predict(SVMlongitude3_B1, B1_validation[,1:146])
+
+Long_B1_SVM <- postResample(Predicted_SVMlongitude3_B1, B1_validation$LONGITUDE)
+##RMSE 21.53, Rsquared 0.82, MAE 15.85     
+
+#Error analysis
+ErroLongitude_SVM3_B1 <-  Predicted_SVMlongitude3_B1 - B1_validation$LONGITUDE
+hist(ErroLongitude_SVM3_B1)
+
+#Metrics B1 Longitute ----
+Metrics_Long_B1 <- rbind(Long_B1_KNN,Long_B1_RF,Long_B1_SVM)
+Metrics_Long_B1 <- format(Metrics_Long_B1, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Long_B1,theme=ttheme_default())
+
+#MODEL1 B2 Longitude Long_B2_RF2 ----
+#RFlongitude2_B2 <- train(y=B2_train2$LONGITUDE,x=B2_train2[,c(1:106)],
+#                        data = B2_train2, method = "rf",ntree=5,
+#                        tuneLength = 15, trControl = fitcontrol)
+
+RFlongitude2_B2 <- readRDS("RFlongitude2_B2.rds")
 
 Predicted_RFlongitude2_B2 <- predict(RFlongitude2_B2, B2_validation[,1:106])
 
-Long_B2_RF2 <- postResample(Predicted_RFlongitude2_B2, B2_validation$LONGITUDE)
-##RMSE 13.33, Rsquared 0.82, MAE 8.48   
+Long_B2_RF <- postResample(Predicted_RFlongitude2_B2, B2_validation$LONGITUDE)
+##RMSE 12.06, Rsquared 0.85, MAE 8.52   
 
 #Error analysis
 ErroLatitude_RF2_B2 <-  Predicted_RFlatitude2_B2 - B2_validation$LATITUDE
 hist(ErroLatitude_RF2_B2)
 
+#MODEL2 B2 Longitude Long_B2_KNN3 ----
+#KNNlongitude3_B2 <- train(y=B2_train3$LONGITUDE,x=B2_train3[,c(1:106)],
+#                          data = B2_train3, method = "knn",
+#                          preprocess=c("center","scale"),
+#                          tuneLength = 15, trControl = fitcontrol)
 
+KNNlongitude3_B2 <- readRDS("KNNlongitude3_B2.rds")
+
+KNNlongitude3_B2
+
+Predicted_KNNlongitude3_B2 <- predict(KNNlongitude3_B2, B2_validation[,1:106])
+
+Long_B2_KNN <- postResample(Predicted_KNNlongitude3_B2, B2_validation$LONGITUDE)
+##RMSE 11.6, Rsquared 0.87, MAE 7.19     
+
+#Error analysis
+ErroLongitude_KNN3_B2 <-  Predicted_KNNlongitude3_B2 - B2_validation$LONGITUDE
+hist(ErroLongitude_KNN3_B2)
+
+
+#MODEL3 B2 Longitude Long_B2_SVM3 ----
+#SVMlongitude3_B2 <- train(y=B2_train3$LONGITUDE,x=B2_train3[,c(1:106)],
+#                          data = B2_train3, method = "svmLinear",
+#                          preProcess = c("center","scale"),
+#                          tuneLength = 15, trControl = fitcontrol)
+
+SVMlongitude3_B2 <- readRDS("SVMlongitude3_B2.rds")
+
+SVMlongitude3_B2
+
+Predicted_SVMlongitude3_B2 <- predict(SVMlongitude3_B2, B2_validation[,1:106])
+
+Long_B2_SVM <- postResample(Predicted_SVMlongitude3_B2, B2_validation$LONGITUDE)
+##RMSE 16.54, Rsquared 0.73, MAE 12.79     
+
+#Error analysis
+ErroLongitude_SVM3_B2 <-  Predicted_SVMlongitude3_B2 - B2_validation$LONGITUDE
+hist(ErroLongitude_SVM3_B2)
+
+#Metrics B2 Longitute ----
+Metrics_Long_B2 <- rbind(Long_B2_KNN,Long_B2_RF,Long_B2_SVM)
+Metrics_Long_B2 <- format(Metrics_Long_B2, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Long_B2,theme=ttheme_default())
 
 #ERROR ANALYSIS ----
 ##Create validation set with predicted LAT & LONG
