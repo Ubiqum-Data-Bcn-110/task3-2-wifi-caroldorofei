@@ -11,7 +11,9 @@ validation <- read.csv("validationData.csv")
 #Libraries ----
 pacman::p_load(dplyr,ggplot2,reshape2,rlist,prob,caret,
                lattice,kazaam,pbdMPI,plotly,EnvStats,
-               gridExtra,grid,formattable)
+               gridExtra,grid,formattable,scales)
+
+
 
 
 #Data Preprocessing ----
@@ -649,23 +651,24 @@ grid.newpage()
 grid.table(Metrics_Floor_B0,theme=ttheme_default())
 
 #MODEL 4 B0 FLOOR Floor_B0_KNN2 SAMPLE----
+set.seed(123)
 inTrainingB0<- createDataPartition(B0_train3$BUILDINGID, times = 1, p = .1)
 trainingB0 <- B0_train3[inTrainingB0$Resample1,]
 
-KNNFloor2_B0 <- train(y=B0_train3$FLOOR,x=B0_train3[,c(1:139)],
-                     data = trainingB0, method = "knn",
-                     preProcess = c("center","scale"),
-                     tuneLength = 15)
+#KNNFloor2_B0 <- train(y=trainingB0$FLOOR,x=trainingB0[,c(1:139)],
+#                     data = trainingB0, method = "knn",
+#                     preProcess = c("center","scale"),
+#                     tuneLength = 15)
 
-KNNFloor2_B0
+#KNNFloor2_B0
 
-Predicted_KNNFloor2_B0 <- predict(KNNFloor2_B0, B0_validation)
+#Predicted_KNNFloor2_B0 <- predict(KNNFloor2_B0, B0_validation)
 
-Floor_B0_RF2 <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
+#Floor_B0_RF2 <- postResample(Predicted_RFFloor2_B0, B0_validation$FLOOR)
 ##Accuracy 0., Kappa 0. 
 
 #Plot confusion matrix 
-cm2 <- confusionMatrix(data = Predicted_KNNFloor2_B0, B0_validation$FLOOR)
+#cm2 <- confusionMatrix(data = Predicted_KNNFloor2_B0, B0_validation$FLOOR)
 
 #MODEL 5 B0 FLOOR Floor_B0_SVM3----
 ##Train SVMLinear Floor 
@@ -724,7 +727,6 @@ SVMLinearFloor2_B1
 
 #Apply SVMLinear1 Floor to test set
 Predicted_FloorSVMLinear2_B1 <- predict(SVMLinearFloor2_B1, B1_validation[,1:139])
-
 #postResample SVMLinear1 Floor to assess the metrics of the predictions
 Floor_B1_SVM <- postResample(Predicted_FloorSVMLinear2_B1, B1_validation$FLOOR)
 ##Accuracy 0.7883, Kappa 0.6888 
@@ -839,20 +841,37 @@ Metrics_Floor_B2 <- format(Metrics_Floor_B2, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Floor_B2,theme=ttheme_default())
 #Error analysis ----
-checkVal_B1F2 <- B1_validation3
-checkVal_B1F2$PredFloor <- Predicted_FloorRF2_B1
-checkVal_B1F2 <- filter(checkVal_B1F2, Predicted_FloorRF2_B1 == "B1F2" & BuildingFloor == "B1F1")
-checkVal_B1F2$BuildingFloor <- checkVal_B1F2$PredFloor 
-checkVal_B1F2$PredFloor <- NULL
-checkVal_B1F2$Real_Pred <- "Predicted"
-checkVal_B1F2Real <- B1_validation3
-checkVal_B1F2Real$Real_Pred <- "Real" 
-checkVal_B1F2a <- rbind(checkVal_B1F2Real,checkVal_B1F2)
+checkerrors_B1 <- B1_validation
+checkerrors_B1$PredFloor <- Predicted_FloorSVMLinear2_B1
+checkerrors_B1 <- filter(checkerrors_B1, FLOOR == "1")
+checkerrors_B1 <- filter(checkerrors_B1, PredFloor == "2" | PredFloor == "0")
+#nrow = 45 errors
+
+checkerrors_B1$PredFloor <- NULL
+checkerrors_B1$Real_Pred <- "Predicted"
+
+checkerrors_B1Real <- B1_train3
+checkerrors_B1Real$Real_Pred <- "Training" 
+checkerrors_B1Final <- rbind(checkerrors_B1,checkerrors_B1Real)
 
 #The plot below shows all validation points for B1 in blue and wrong predictions in pink 
-#Real: B1F1, Predicted B1F2
-ggplot(checkVal_B1F2a, aes(checkVal_B1F2a$LATITUDE,checkVal_B1F2a$LONGITUDE, colour = checkVal_B1F2a$Real_Pred)) +
-  geom_point()
+#Real: B1F1, Predicted B1F2 and B1F3
+ggplot(checkerrors_B1Real, aes(checkerrors_B1Real$LONGITUDE,
+                               checkerrors_B1Real$LATITUDE)) +
+  geom_point(colour = "#00BFC4") +
+  labs(colour = "",
+       x = "Longitude",
+       y = "Latitude")
+
+show_col(hue_pal()(4))
+
+ggplot(checkerrors_B1Final, aes(checkerrors_B1Final$LONGITUDE,checkerrors_B1Final$LATITUDE, 
+                                colour = checkerrors_B1Final$Real_Pred)) +
+  geom_point() +
+  labs(colour = "",
+       x = "Longitude",
+       y = "Latitude")
+
 
 #Range Longitude -7569 to -7474
 #Range Latitude 4864840 to 4864901
@@ -1195,21 +1214,21 @@ ErroLatitude_SVM3_B2 <-  Predicted_SVMlatitude3_B2 - B2_validation$LATITUDE
 hist(ErroLatitude_SVM3_B2)
 
 #MODEL5 B2 Latitude Lat_B2_RF3Exp ----
-RFlatitude3Exp_B2 <- train(y=B2_train3Exp$LATITUDE,x=B2_train3Exp[,c(1:106)],
-                           data = B2_train3Exp, method = "rf",ntree=5,
-                           preProcess = c("BoxCox","center","scale"),
-                           tuneLength = 15, trControl = fitcontrol)
+#RFlatitude3Exp_B2 <- train(y=B2_train3Exp$LATITUDE,x=B2_train3Exp[,c(1:106)],
+#                           data = B2_train3Exp, method = "rf",ntree=5,
+#                           preProcess = c("BoxCox","center","scale"),
+#                           tuneLength = 15, trControl = fitcontrol)
 
-RFlatitude3Exp_B2
+#RFlatitude3Exp_B2
 
-Predicted_RFlatitude3Exp_B2 <- predict(RFlatitude3Exp_B2, B2_validation_Exp[,1:106])
+#Predicted_RFlatitude3Exp_B2 <- predict(RFlatitude3Exp_B2, B2_validation_Exp[,1:106])
 
-Lat_B2_RF3Exp <- postResample(Predicted_RFlatitude3Exp_B2, B2_validation_Exp$LATITUDE)
+#Lat_B2_RF3Exp <- postResample(Predicted_RFlatitude3Exp_B2, B2_validation_Exp$LATITUDE)
 ##RMSE 11.34, Rsquared 0.84, MAE 7.69     
 
 #Error analysis
-ErroLatitude_RF3Exp_B2 <-  Predicted_RFlatitude3Exp_B2 - B2_validation_Exp$LATITUDE
-hist(ErroLatitude_RF3Exp_B2)
+#ErroLatitude_RF3Exp_B2 <-  Predicted_RFlatitude3Exp_B2 - B2_validation_Exp$LATITUDE
+#hist(ErroLatitude_RF3Exp_B2)
 
 #MODEL6 B2 Latitude Lat_B2_KNN3 ----
 #KNNlatitude3_B2 <- train(y=B2_train3$LATITUDE,x=B2_train3[,c(1:106)],
@@ -1228,8 +1247,8 @@ Lat_B2_KNN <- postResample(Predicted_KNNlatitude3_B2, B2_validation$LATITUDE)
 ##RMSE 9.5, Rsquared 0.89, MAE 5.92     
 
 #Error analysis
-ErroLatitude_KNN3_B1 <-  Predicted_KNNlatitude3_B1 - B1_validation$LATITUDE
-hist(ErroLatitude_KNN3_B1)
+ErroLatitude_KNN3_B2 <-  Predicted_KNNlatitude3_B2 - B2_validation$LATITUDE
+hist(ErroLatitude_KNN3_B2)
 #Metrics B2 Latitute ----
 Metrics_Lat_B2 <- rbind(Lat_B2_KNN,Lat_B2_RF,Lat_B2_SVM)
 Metrics_Lat_B2 <- format(Metrics_Lat_B2, digits = 2, format = "f")
@@ -1254,11 +1273,10 @@ ErroLongitude_RF2_B0 <-  Predicted_RFlongitude2_B0 - B0_validation$LONGITUDE
 hist(ErroLongitude_RF2_B0)
 
 #MODEL2 B0 Longitude Long_B0_KNN3 ----
-KNNlongitude3_B0 <- train(y=B0_train3$LONGITUDE,x=B0_train3[,c(1:139)],
-                         data = B0_train3, method = "knn",
-                         preprocess=c("center","scale"),
-                         tuneLength = 15, trControl = fitcontrol)
-
+#KNNlongitude3_B0 <- train(y=B0_train3$LONGITUDE,x=B0_train3[,c(1:139)],
+#                         data = B0_train3, method = "knn",
+#                         preprocess=c("center","scale"),
+#                         tuneLength = 15, trControl = fitcontrol)
 
 KNNlongitude3_B0 <- readRDS("KNNlongitude3_B0.rds")
 
@@ -1417,21 +1435,85 @@ Metrics_Long_B2 <- format(Metrics_Long_B2, digits = 2, format = "f")
 grid.newpage()
 grid.table(Metrics_Long_B2,theme=ttheme_default())
 
+
+#Building 0
+Floor_B0_SVM <- rbind(Floor_B0_SVM,Floor_B0_SVM)
+Floor_B0_SVM <- format(Floor_B0_SVM, digits = 2, format = "f")
+grid.newpage()
+grid.table(Floor_B0_SVM,theme=ttheme_default())
+
+Metrics_Building0 <- rbind(Lat_B0_KNN,Long_B0_KNN)
+Metrics_Building0 <- format(Metrics_Building0, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Building0,theme=ttheme_default())
+
+Floor_B1_SVM <- rbind(Floor_B1_SVM,Floor_B1_SVM)
+Floor_B1_SVM <- format(Floor_B1_SVM, digits = 2, format = "f")
+grid.newpage()
+grid.table(Floor_B1_SVM,theme=ttheme_default())
+
+Metrics_Building1 <- rbind(Lat_B1_KNN,Long_B1_KNN)
+Metrics_Building1 <- format(Metrics_Building1, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Building1,theme=ttheme_default())
+
+
+Floor_B2_SVM <- rbind(Floor_B2_SVM,Floor_B2_SVM)
+Floor_B2_SVM <- format(Floor_B2_SVM, digits = 2, format = "f")
+grid.newpage()
+grid.table(Floor_B2_SVM,theme=ttheme_default())
+
+Metrics_Building2 <- rbind(Lat_B2_KNN,Long_B2_KNN)
+Metrics_Building2 <- format(Metrics_Building2, digits = 2, format = "f")
+grid.newpage()
+grid.table(Metrics_Building2,theme=ttheme_default())
+
+
+
+
+
+
+
 #ERROR ANALYSIS ----
 ##Create validation set with predicted LAT & LONG
-validationLatLong_B0 <- B0_validation3.Regr
-validationLatLong_B0$Real_Predicted <- "Real"
+validationPredictedB0 <- B0_validation[,140:141]
+validationPredictedB0$LATITUDE <-  Predicted_KNNlatitude3_B0
+validationPredictedB0$LONGITUDE <- Predicted_KNNlongitude3_B0
+validationPredictedB0$FLOOR <- Predicted_FloorSVMLinear2_B0
 
-validationLatLong_B0Pred <-  B0_validation3.Regr
-validationLatLong_B0Pred$LATITUDE <-  RFLatitude1_B0
-validationLatLong_B0Pred$LONGITUDE <- RFLongitude1_B0
-validationLatLong_B0Pred$Real_Predicted <- "Predicted"
+validationPredictedB1 <- B1_validation[,147:148]
+validationPredictedB1$LATITUDE <-  Predicted_KNNlatitude3_B1
+validationPredictedB1$LONGITUDE <- Predicted_KNNlongitude3_B1
+validationPredictedB1$FLOOR <- Predicted_FloorSVMLinear2_B1
 
-validationLatLong_B0Compl <- rbind(validationLatLong_B0,validationLatLong_B0Pred)
+validationPredictedB2 <- B2_validation[,107:108]
+validationPredictedB2$LATITUDE <-  Predicted_KNNlatitude3_B2
+validationPredictedB2$LONGITUDE <- Predicted_KNNlongitude3_B2
+validationPredictedB2$FLOOR <- Predicted_FloorSVMLinear2_B2
 
-B0_validation_predictions <- B0_validation3.Regr
-B0_validation_predictions$Pred_Latitude <- RFLatitude1_B0
-B0_validation_predictions$Pred_Longitude <- RFLongitude1_B0
+validationPredicted <- rbind(validationPredictedB0,validationPredictedB1,
+                             validationPredictedB2)
+
+
+
+plot_ly(x=validationRealB0$LATITUDE,y=validationRealB0$LONGITUDE,
+        z=validationRealB0$FLOOR,
+        type = "scatter3d",mode="markers")
+
+plot_ly(x=validationPredictedB0$LATITUDE,y=validationPredictedB0$LONGITUDE,
+        z=validationPredictedB0$FLOOR,
+        type = "scatter3d",mode="markers")
+
+plot_ly(x=validationB0complete$LATITUDE,y=validationB0complete$LONGITUDE,
+        z=validationB0complete$FLOOR,
+        color=validationB0complete$Real_Pred,
+        type = "scatter3d",mode="markers")
+
+
+
+
+
+
 
 B0_validation_predictions$Error_Latitude <- B0_validation_predictions$Pred_Latitude-B0_validation_predictions$LATITUDE
 B0_validation_predictions$Error_Longitude <- B0_validation_predictions$Pred_Longitude-B0_validation_predictions$LONGITUDE
@@ -1499,3 +1581,17 @@ View(test1)
 
 View(test1[,apply(test1,1,function(x) x != -105)])
 #Potential problematic WAPs -> 27(-74), 28(-74), 57(-94) & 58(-92)
+
+ggplot(trainset,aes(trainset$LONGITUDE,trainset$LATITUDE))+
+  geom_point()+
+  labs(x="Longitude",y="Latitude")
+
+ggplot(validation,aes(validation$LONGITUDE,validation$LATITUDE))+
+  geom_point(colour = "#00BFC4")+
+  labs(x="Longitude",y="Latitude")
+  
+ggplot(validation,aes(validationPredicted$LONGITUDE,validationPredicted$LATITUDE))+
+  geom_point(colour = "#F8766D")+
+  labs(x="Longitude",y="Latitude")
+
+
